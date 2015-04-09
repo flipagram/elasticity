@@ -1,5 +1,5 @@
 # Elasticity
-Utility for managing indexes and their data on elastic search clusters
+Utility for managing indexes and their data on elastic search clusters without incurring downtime.
 
 ## installation and use
 Elasticity is in [PyPi](https://pypi.python.org/pypi/elasticity) and can be installed using pip:
