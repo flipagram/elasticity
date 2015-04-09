@@ -15,7 +15,8 @@ def main():
     parser.add_argument('-p', '--port', help='The port to connect to on host', default=9201)
     parser.add_argument('-un', '--username', help='The username')
     parser.add_argument('-pw', '--password', help='The password')
-    parser.add_argument('-d', '--delete-old-index', help='Delete old index after updating', default=False, action='store_true')
+    parser.add_argument('-do', '--delete-old-index', help='Delete old index after updating', default=False, action='store_true')
+    parser.add_argument('-co', '--close-old-index', help='Close old index after updating', default=False, action='store_true')
     parser.add_argument('-c', '--create', help='Create new stuff', default=False, action='store_true')
     parser.add_argument('-u', '--update', help='Update existing stuff', default=False, action='store_true')
     args = parser.parse_args(sys.argv[1:])
@@ -33,7 +34,7 @@ def main():
         elasticity.create(es, config)
 
     elif args.update:
-        elasticity.update(es, args.delete_old_index, config)
+        elasticity.update(es, args.delete_old_index, args.close_old_index, config)
         
 if __name__ == "__main__":
     try:

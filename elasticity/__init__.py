@@ -81,7 +81,7 @@ def dated_name(name):
     """
     return name+"_"+strftime("%Y%m%d%H%M%S", gmtime())
 
-def update(es, delete_old_index, config):
+def update(es, delete_old_index, close_old_index, config):
     """ Updates all of the stuff
     """
 
@@ -143,6 +143,10 @@ def update(es, delete_old_index, config):
         info("Creating index alias %s for %s" % (index.alias, index_name))
         es.indices.put_alias(index=index_name, name=index.alias)
         es.cluster.health(wait_for_status='yellow', request_timeout=100)
+
+        if close_old_index and old_index:
+            warn("Closing old index %s" % (old_index,))
+            es.indices.close(index=old_index)
 
         if delete_old_index and old_index:
             warn("Deleting old index %s" % (old_index,))

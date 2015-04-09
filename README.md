@@ -28,8 +28,10 @@ optional arguments:
                         The username
   -pw PASSWORD, --password PASSWORD
                         The password
-  -d, --delete-old-index
+  -do, --delete-old-index
                         Delete old index after updating
+  -co, --close-old-index
+                        Close old index after updating
   -c, --create          Create new stuff
   -u, --update          Update existing stuff
 
@@ -42,7 +44,8 @@ optional arguments:
 - The `-pw` optional argument that specifies what password to use
 - The `-c` argument tells elasticity to operate in create mode, new indexes and aliases are created
 - The `-u` argument tells elasticity to operate in update mode, new indexes and aliases are created and data is copied from the old index
-- The `-d` argument only takes affect in update mode and deletes the old index after data has been coppied to the new index
+- The `-do` argument only takes affect in update mode and deletes the old index after data has been coppied to the new index and the alias is pointed to the new index
+- The `-co` argument only takes affect in update mode and closes the old index after data has been coppied to the new index and the alias is pointed to the new index
 
 ## configuration
 Elasticity uses yaml for configuration.  Here's a sample that uses all of the options:
