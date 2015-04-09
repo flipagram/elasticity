@@ -1,8 +1,8 @@
-# smarterling
+# Elasticity
 Utility for managing indexes and their data on elastic search clusters
 
 ## installation and use
-Smarterling is in [PyPi](https://pypi.python.org/pypi/elasticity) and can be installed using pip:
+Elasticity is in [PyPi](https://pypi.python.org/pypi/elasticity) and can be installed using pip:
 ```shell
 > pip install elasticity
 ```
