@@ -1,5 +1,8 @@
-from elasticsearch import Elasticsearch, helpers
+from elasticsearch import Elasticsearch, client, helpers
+from functools import partial
+import itertools
 import logging
+from math import ceil
 import os
 import shutil
 import tempfile
@@ -78,9 +81,10 @@ def dated_name(name):
     """
     return name+"_"+strftime("%Y%m%d%H%M%S", gmtime())
 
-def update(es, config):
+def update(es, delete_old_index, config):
     """ Updates all of the stuff
     """
+
     for index in config.get('indexes', []):
         index_name = dated_name(index.name)
 
@@ -102,21 +106,52 @@ def update(es, config):
                 doc_type=mapping.doc_type, index=index_name)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
-            info("Reindexing documents from %s:%s to %s" % (index.alias, mapping.doc_type, index_name))
-            response = helpers.reindex(es, index.alias, index_name,
-                query={"query" : {"match_all" : {}}},
-                chunk_size=index.get('chunk_size', 500),
-                scroll=index.get('scroll', '10m'))
+        old_bulk = es.bulk
+        try:
+            query       = {"query" : {"match_all" : {}}}
+            chunk_size  = float(index.get('chunk_size', 500))
+            doc_count   = int(es.count(index=index.alias)['count'])
+            chunks      = int(ceil(float(doc_count) / chunk_size))
+            chunk       = itertools.count()
 
-        info("Moving index alias %s over to %s" % (index.alias, index_name))
+            def _bulk(self, *args, **kwargs):
+                chunks = kwargs.pop('__chunks')
+                chunk = kwargs.pop('__chunk')
+                info("Reindexed chunk %s of %s" % (chunk.next()+1, chunks))
+                return old_bulk(self, *args, **kwargs)
+            es.bulk = partial(_bulk, __chunks=chunks, __chunk=chunk)
+
+            info("Reindexing %s documents in chunks of %s from %s:%s to %s"
+                % (doc_count, int(chunk_size), index.alias, mapping.doc_type, index_name))
+            response = helpers.reindex(es, index.alias, index_name,
+                query=query,
+                chunk_size=chunk_size,
+                scroll=index.get('scroll', '10m'))
+        finally:
+            es.bulk = old_bulk
+
+        old_index = None
         if es.indices.exists_alias(index='_all', name=index.alias):
+            resp = es.indices.get_aliases(name=index.alias, index='_all')
+            for idx in resp:
+                if resp[idx]['aliases'].has_key(index.alias) and str(idx).startswith(index.name+"_"):
+                    old_index = str(idx)
+                    break
             info("Deleting existing alias %s" % (index.alias))
             es.indices.delete_alias(index='_all', name=index.alias)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
+        info("Creating index alias %s for %s" % (index.alias, index_name))
         es.indices.put_alias(index=index_name, name=index.alias)
         es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
-        info("Index alias %s now points at %s - you can safely delete the old index" % (index.alias, index_name))
+        if delete_old_index and old_index:
+            warn("Deleting old index %s" % (old_index,))
+            es.indices.delete(index=old_index)
+            info("Index alias %s now points at %s and  the old index %s has been deleted"
+                % (index.alias, index_name, old_index))
+        else:
+            info("Index alias %s now points at %s - you can safely delete the old index: %s"
+                % (index.alias, index_name))
 
 def create(es, config):
     """ Creates all of the stuff
