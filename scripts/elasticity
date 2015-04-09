@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+import argparse
+import elasticity
+import sys
+from elasticity import info, warn, error
+
+def main():
+    """ The entry point of the app.
+    """
+
+    parser = argparse.ArgumentParser(description='Elasticity', usage='%(prog)s [options]')
+    parser.add_argument('-f', '--config-file', help='Configuration file, defaults to elasticity.config', default='elasticity.config')
+    parser.add_argument('-i', '--host', help='The host to connect to', default='localhost')
+    parser.add_argument('-p', '--port', help='The port to connect to on host', default=9201)
+    parser.add_argument('-un', '--username', help='The username')
+    parser.add_argument('-pw', '--password', help='The password')
+    parser.add_argument('-c', '--create', help='Create new stuff', default=False, action='store_true')
+    parser.add_argument('-u', '--update', help='Update existing stuff', default=False, action='store_true')
+    args = parser.parse_args(sys.argv[1:])
+
+    config = elasticity.parse_config(args.config_file)
+
+    if args.create and args.update or (not args.create and not args.update):
+        error("Error: Must provide one of create or update")
+        parser.print_help()
+        exit(420)
+
+    es = elasticity.connect(args.host, args.port, user=args.username, password=args.password)
+
+    if args.create:
+        elasticity.create(es, config)
+
+    elif args.update:
+        elasticity.update(es, config)
+        
+if __name__ == "__main__":
+    try:
+        main()
+    except elasticity.ElasticityError as e:
+        error("Error: %s" % e.message)
+        exit(187)
