@@ -88,8 +88,15 @@ def update(es, delete_old_index, close_old_index, config):
     for index in config.get('indexes', []):
         index_name = dated_name(index.name)
 
+        # don't create the index without the correct settings
         info("Creating index: %s as %s (%s)" % (index.name, index_name, index.alias))
-        es.indices.create(index=index_name)
+        if index.has_key('creation_file'):
+            info("Applying creation settings to %s (%s)" % (index_name, index.creation_file))
+            es.indices.create(index=index_name, body=read_file(index.creation_file))
+        else:
+            es.indices.create(index=index_name)
+
+        # wait for cluster health to return
         es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
         if index.has_key('settings_file'):
@@ -163,8 +170,15 @@ def create(es, config):
     for index in config.get('indexes', []):
         index_name = dated_name(index.name)
 
+        # don't create the index without the correct settings
         info("Creating index: %s as %s (%s)" % (index.name, index_name, index.alias))
-        es.indices.create(index=index_name)
+        if index.has_key('creation_file'):
+            info("Applying creation settings to %s (%s)" % (index_name, index.creation_file))
+            es.indices.create(index=index_name, body=read_file(index.creation_file))
+        else:
+            es.indices.create(index=index_name)
+
+        # wait for the cluster health to come back
         es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
         if index.has_key('settings_file'):
@@ -178,7 +192,7 @@ def create(es, config):
         for mapping in index.get('mappings', []):
             info("Applying mapping to %s:%s (%s)" % (index_name, mapping.doc_type, mapping.mapping_file))
             es.indices.put_mapping(body=read_file(mapping.mapping_file),
-                doc_type=mapping.doc_type, index=index_name)
+                                   doc_type=mapping.doc_type, index=index_name)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
         if es.indices.exists_alias(index='_all', name=index.alias):
