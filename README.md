@@ -32,6 +32,10 @@ optional arguments:
                         Delete old index after updating
   -co, --close-old-index
                         Close old index after updating
+  -t NUM_THREADS, --num-threads NUM_THREADS
+                        Number of threads to use when reindexing
+  -cs CHUNK_SIZE, --chunk-size CHUNK_SIZE
+                        Number of documents to index at once
   -c, --create          Create new stuff
   -u, --update          Update existing stuff
 
@@ -46,6 +50,8 @@ optional arguments:
 - The `-u` argument tells elasticity to operate in update mode, new indexes and aliases are created and data is copied from the old index
 - The `-do` argument only takes affect in update mode and deletes the old index after data has been coppied to the new index and the alias is pointed to the new index
 - The `-co` argument only takes affect in update mode and closes the old index after data has been coppied to the new index and the alias is pointed to the new index
+- The `-cs` argument defines the chunks size, the number of documents to be bulk reindexed at once
+- The `-t` argument defines the number of write threads to employ when reindexing
 
 ## configuration
 Elasticity uses yaml for configuration.  Here's a sample that uses all of the options:
@@ -58,7 +64,6 @@ indexes:
         alias: books
         settings_file: src/es/books-settings.json
         creation_file: src/es/books-index-creation.json
-        chunk_size: 100
         mappings:
             - 
                 doc_type: hardcover_book
@@ -86,7 +91,6 @@ Each index definition has the following configuration attributes:
 - `alias` (required) the name of an alias to create and map to the index created.  This is the index that applications using elastic search should use.
 - `settings_file` (optional) the name of a file containing a json payload that describes the settings for the index.
 - `creation_file` (optional) the name of a file containing a json settings payload that describes settings necessary for index creation. e.g., number_of_shards
-- `chunk_size` (optional) the number of documents to reindex at once
 - `mappings` (optional) a list of mappings to add to the index
   - `doc_type` (required) the document type for the given mapping
   - `mapping_file` (required) the name of a file containing a json payload the describes the mapping for the given doc-type in the given index.

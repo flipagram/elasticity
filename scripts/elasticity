@@ -17,6 +17,8 @@ def main():
     parser.add_argument('-pw', '--password', help='The password')
     parser.add_argument('-do', '--delete-old-index', help='Delete old index after updating', default=False, action='store_true')
     parser.add_argument('-co', '--close-old-index', help='Close old index after updating', default=False, action='store_true')
+    parser.add_argument('-t', '--num-threads', help='Number of threads to use when reindexing', default=5)
+    parser.add_argument('-cs', '--chunk-size', help='Number of documents to index at once', default=500)
     parser.add_argument('-c', '--create', help='Create new stuff', default=False, action='store_true')
     parser.add_argument('-u', '--update', help='Update existing stuff', default=False, action='store_true')
     args = parser.parse_args(sys.argv[1:])
@@ -34,7 +36,11 @@ def main():
         elasticity.create(es, config)
 
     elif args.update:
-        elasticity.update(es, args.delete_old_index, args.close_old_index, config)
+        elasticity.update(es,
+            args.delete_old_index,
+            args.close_old_index, config,
+            int(args.num_threads),
+            int(args.chunk_size))
         
 if __name__ == "__main__":
     try:

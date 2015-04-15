@@ -4,7 +4,7 @@ setup(
 
     # general meta
     name='elasticity',
-    version='0.3',
+    version='0.4',
     author='Brian C. Dilley - Flipagram',
     author_email='brian@flipagram.com',
     description='Python based command line tool for managing ElasticSearch clusters.',

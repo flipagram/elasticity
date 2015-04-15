@@ -4,9 +4,11 @@ import itertools
 import logging
 from math import ceil
 import os
+from Queue import Queue, Empty
 import shutil
+from threading import Lock, Thread
 import tempfile
-from time import gmtime, strftime
+from time import gmtime, strftime, time
 import yaml
 
 logging.basicConfig(format='[%(levelname)s] %(message)s')
@@ -43,6 +45,27 @@ class AttributeDict(dict):
                 ret.append(self.wrap(x))
             return ret
         return val
+
+class AtomicInt(object):
+    """ A thread safe atomic integer
+    """
+    def __init__(self):
+        self.value  = 0
+        self.lock   = Lock()
+    def set_value(self, value):
+        with self.lock:
+            self.value = value
+            return self.value
+    def get_value(self):
+        return self.value
+    def add_value(self, value):
+        with self.lock:
+            self.value += value
+            return self.value
+    def inc(self):
+        return self.add_value(1)
+    def dec(self):
+        return self.add_value(-1)
 
 def connect(host, port, user=None, password=None):
     """ Opens a new session to elastic search
@@ -81,7 +104,7 @@ def dated_name(name):
     """
     return name+"_"+strftime("%Y%m%d%H%M%S", gmtime())
 
-def update(es, delete_old_index, close_old_index, config):
+def update(es, delete_old_index, close_old_index, config, num_threads, chunk_size):
     """ Updates all of the stuff
     """
 
@@ -113,29 +136,12 @@ def update(es, delete_old_index, close_old_index, config):
                 doc_type=mapping.doc_type, index=index_name)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
-        old_bulk = es.bulk
-        try:
-            query       = {"query" : {"match_all" : {}}}
-            chunk_size  = float(index.get('chunk_size', 500))
-            doc_count   = int(es.count(index=index.alias)['count'])
-            chunks      = int(ceil(float(doc_count) / chunk_size))
-            chunk       = itertools.count()
-
-            def _bulk(self, *args, **kwargs):
-                chunks = kwargs.pop('__chunks')
-                chunk = kwargs.pop('__chunk')
-                info("Reindexed chunk %s of %s" % (chunk.next()+1, chunks))
-                return old_bulk(self, *args, **kwargs)
-            es.bulk = partial(_bulk, __chunks=chunks, __chunk=chunk)
-
-            info("Reindexing %s documents in chunks of %s from %s:%s to %s"
-                % (doc_count, int(chunk_size), index.alias, mapping.doc_type, index_name))
-            response = helpers.reindex(es, index.alias, index_name,
-                query=query,
-                chunk_size=chunk_size,
-                scroll=index.get('scroll', '10m'))
-        finally:
-            es.bulk = old_bulk
+        doc_count   = int(es.count(index=index.alias)['count'])
+        chunk_size  = float(chunk_size)
+        chunks      = int(ceil(float(doc_count) / chunk_size))
+        info("Reindexing %s documents in chunks of %s from %s:%s to %s"
+            % (doc_count, int(chunk_size), index.alias, mapping.doc_type, index_name))
+        reindex(es, index.alias, index_name, num_threads, chunk_size, doc_count)
 
         old_index = None
         if es.indices.exists_alias(index='_all', name=index.alias):
@@ -162,7 +168,7 @@ def update(es, delete_old_index, close_old_index, config):
                 % (index.alias, index_name, old_index))
         else:
             info("Index alias %s now points at %s - you can safely delete the old index: %s"
-                % (index.alias, index_name))
+                % (index.alias, index_name, old_index))
 
 def create(es, config):
     """ Creates all of the stuff
@@ -201,4 +207,75 @@ def create(es, config):
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
         es.indices.put_alias(index=index_name, name=index.alias)
         es.cluster.health(wait_for_status='yellow', request_timeout=100)
+
+def reindex(es, index_from, index_to, num_threads, chunk_size, doc_count):
+    """ Reindexes all documents from index_from to index_to
+        Using the given number of threads.
+    """
+    q = Queue(maxsize=10000)
+
+    mutex = AtomicInt()
+    mutex.set_value(0)
+
+    counter = AtomicInt()
+    counter.set_value(0)
+
+    def _write_worker():
+        prev_count  = 0
+        start_time  = time()
+        while mutex.get_value()==0:
+            try:
+                docs = q.get(False, 1000)
+                docs = [{ 
+                            '_index':       index_to,
+                            '_type':        doc['_type'],
+                            '_id':          doc['_id'],
+                            '_source':      doc['_source']
+                        } for doc in docs]
+                helpers.bulk(es, docs)
+                counter.add_value(len(docs))
+                q.task_done()
+
+                elapsed = time() - start_time
+                c = counter.get_value()
+                dps = 0
+                remain = 0
+                if elapsed > 0:
+                    dps = (c - prev_count) / elapsed
+                    prev_count = c
+                    start_time = time()
+                    remain = (doc_count - c) / dps
+
+                info("Indexed %s of %s documents (%s dps, %ss remain)"
+                    % (counter.add_value(len(docs)), doc_count, int(dps), int(remain)))
+
+            except Empty:
+                pass
+
+    for i in range(num_threads):
+        info("Starting thread: %s" % i)
+        worker = Thread(target=_write_worker)
+        worker.setDaemon(True)
+        worker.start()
+
+    docs = helpers.scan(es,
+            query={"query" : {"match_all" : {}}},
+            index=index_from,
+            scroll='10m')
+
+    chunk = []
+    for doc in docs:
+        chunk.append(doc)
+        if len(chunk)>=chunk_size:
+            q.put(chunk)
+            chunk = []
+
+    if len(chunk)>0:
+        q.put(chunk)
+        chunk = []
+
+    q.join()
+    info("Waiting for queue to drain, current size is: "+str(q.qsize()))
+    mutex.set_value(1)
+
 
