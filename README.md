@@ -58,6 +58,7 @@ indexes:
         alias: books
         settings_file: src/es/books-settings.json
         creation_file: src/es/books-index-creation.json
+        chunk_size: 100
         mappings:
             - 
                 doc_type: hardcover_book
@@ -85,6 +86,7 @@ Each index definition has the following configuration attributes:
 - `alias` (required) the name of an alias to create and map to the index created.  This is the index that applications using elastic search should use.
 - `settings_file` (optional) the name of a file containing a json payload that describes the settings for the index.
 - `creation_file` (optional) the name of a file containing a json settings payload that describes settings necessary for index creation. e.g., number_of_shards
+- `chunk_size` (optional) the number of documents to reindex at once
 - `mappings` (optional) a list of mappings to add to the index
   - `doc_type` (required) the document type for the given mapping
   - `mapping_file` (required) the name of a file containing a json payload the describes the mapping for the given doc-type in the given index.
