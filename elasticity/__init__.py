@@ -136,15 +136,16 @@ def update(es, delete_old_index, close_old_index, config, num_threads, chunk_siz
                 doc_type=mapping.doc_type, index=index_name)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
 
-        doc_count   = int(es.count(index=index.alias)['count'])
-        chunk_size  = float(chunk_size)
-        chunks      = int(ceil(float(doc_count) / chunk_size))
-        info("Reindexing %s documents in chunks of %s from %s:%s to %s"
-            % (doc_count, int(chunk_size), index.alias, mapping.doc_type, index_name))
-        reindex(es, index.alias, index_name, num_threads, chunk_size, doc_count)
-
         old_index = None
         if es.indices.exists_alias(index='_all', name=index.alias):
+
+            doc_count   = int(es.count(index=index.alias)['count'])
+            chunk_size  = float(chunk_size)
+            chunks      = int(ceil(float(doc_count) / chunk_size))
+            info("Reindexing %s documents in chunks of %s from %s:%s to %s"
+                % (doc_count, int(chunk_size), index.alias, mapping.doc_type, index_name))
+            reindex(es, index.alias, index_name, num_threads, chunk_size, doc_count)
+
             resp = es.indices.get_aliases(name=index.alias, index='_all')
             for idx in resp:
                 if resp[idx]['aliases'].has_key(index.alias) and str(idx).startswith(index.name+"_"):
@@ -153,6 +154,7 @@ def update(es, delete_old_index, close_old_index, config, num_threads, chunk_siz
             info("Deleting existing alias %s" % (index.alias))
             es.indices.delete_alias(index='_all', name=index.alias)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
+            
         info("Creating index alias %s for %s" % (index.alias, index_name))
         es.indices.put_alias(index=index_name, name=index.alias)
         es.cluster.health(wait_for_status='yellow', request_timeout=100)
