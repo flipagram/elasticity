@@ -104,11 +104,16 @@ def dated_name(name):
     """
     return name+"_"+strftime("%Y%m%d%H%M%S", gmtime())
 
-def update(es, delete_old_index, close_old_index, config, num_threads, chunk_size):
+def update(es, indices, delete_old_index, close_old_index, config, num_threads, chunk_size):
     """ Updates all of the stuff
     """
 
     for index in config.get('indexes', []):
+
+        if indices and (index.name not in indices and index.alias not in indices):
+            warn("Skiping index %s" % (index.name, ))
+            continue
+
         index_name = dated_name(index.name)
 
         # don't create the index without the correct settings
@@ -154,7 +159,7 @@ def update(es, delete_old_index, close_old_index, config, num_threads, chunk_siz
             info("Deleting existing alias %s" % (index.alias))
             es.indices.delete_alias(index='_all', name=index.alias)
             es.cluster.health(wait_for_status='yellow', request_timeout=100)
-            
+
         info("Creating index alias %s for %s" % (index.alias, index_name))
         es.indices.put_alias(index=index_name, name=index.alias)
         es.cluster.health(wait_for_status='yellow', request_timeout=100)

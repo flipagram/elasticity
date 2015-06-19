@@ -21,6 +21,7 @@ def main():
     parser.add_argument('-cs', '--chunk-size', help='Number of documents to index at once', default=500)
     parser.add_argument('-c', '--create', help='Create new stuff', default=False, action='store_true')
     parser.add_argument('-u', '--update', help='Update existing stuff', default=False, action='store_true')
+    parser.add_argument('-in', '--index', help='Only operate on this index (can be specified multiple times)', default=[], action='append')
     args = parser.parse_args(sys.argv[1:])
 
     config = elasticity.parse_config(args.config_file)
@@ -37,6 +38,7 @@ def main():
 
     elif args.update:
         elasticity.update(es,
+            args.index,
             args.delete_old_index,
             args.close_old_index, config,
             int(args.num_threads),

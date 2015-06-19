@@ -38,7 +38,9 @@ optional arguments:
                         Number of documents to index at once
   -c, --create          Create new stuff
   -u, --update          Update existing stuff
-
+  -in INDEX, --index INDEX
+                        Only operate on this index (can be specified multiple
+                        times)
 ```
 
 - The `-f` argument defines a configuration file to use, this value defaults to `elasticity.config`
@@ -52,6 +54,7 @@ optional arguments:
 - The `-co` argument only takes affect in update mode and closes the old index after data has been coppied to the new index and the alias is pointed to the new index
 - The `-cs` argument defines the chunks size, the number of documents to be bulk reindexed at once
 - The `-t` argument defines the number of write threads to employ when reindexing
+- The `-in` argument defines specific indexes (or aliases) to operate on.  This is useful for when you only want to update a single instance rather than all indices defined in the configuration file
 
 ## configuration
 Elasticity uses yaml for configuration.  Here's a sample that uses all of the options:
