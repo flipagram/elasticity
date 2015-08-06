@@ -34,7 +34,7 @@ def main():
     es = elasticity.connect(args.host, args.port, user=args.username, password=args.password)
 
     if args.create:
-        elasticity.create(es, config)
+        elasticity.create(es, config, args.index)
 
     elif args.update:
         elasticity.update(es,

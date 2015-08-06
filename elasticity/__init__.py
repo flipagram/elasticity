@@ -177,10 +177,15 @@ def update(es, indices, delete_old_index, close_old_index, config, num_threads, 
             info("Index alias %s now points at %s - you can safely delete the old index: %s"
                 % (index.alias, index_name, old_index))
 
-def create(es, config):
+def create(es, config, indices):
     """ Creates all of the stuff
     """
     for index in config.get('indexes', []):
+
+        if indices and (index.name not in indices and index.alias not in indices):
+            warn("Skiping index %s" % (index.name, ))
+            continue
+
         index_name = dated_name(index.name)
 
         # don't create the index without the correct settings
